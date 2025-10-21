@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card" style="text-align:center; padding:28px;">
+  <h2 style="margin-top:0;">✅ Checkout Success</h2>
+  <p>Thanks for your order! We’ve received it and will process it shortly.</p>
+  <div style="margin-top:16px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+    <a class="btn" href="{{ url_for('products') }}">Continue Shopping</a>
+    <a class="btn" href="{{ url_for('home') }}">Back to Home</a>
+  </div>
+</section>
+{% endblock %}

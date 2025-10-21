@@ -1,0 +1,121 @@
+{#{% extends "base.html" %}#}
+{#{% block content %}#}
+{#<h2>Menu</h2>#}
+{##}
+{#<div class="grid">#}
+{#  {% for p in products %}#}
+{#  <div class="card">#}
+{#    <img src="{{ url_for('static', filename='img/' ~ (p.image or 'placeholder.png')) }}" alt="{{ p.name }}">#}
+{#    <h3>{{ p.name }}</h3>#}
+{#    <div class="muted">{{ p.category }}</div>#}
+{#    <div class="price">${{ '%.2f'|format(p.price) }}</div>#}
+{#    <form method="post" action="{{ url_for('add_to_cart') }}">#}
+{#      <input type="hidden" name="product_id" value="{{ p.id }}">#}
+{#      <label>Qty <input type="number" min="1" value="1" name="qty"></label>#}
+{#      <button class="btn" type="submit">Add to Cart</button>#}
+{#    </form>#}
+{##}
+{#  </div>#}
+{#  {% endfor %}#}
+{#</div>#}
+{#{% endblock %}#}
+
+{% extends "base.html" %}
+{% block content %}
+<h2>Menu</h2>
+
+<div class="grid">
+  {% for p in products %}
+  <div class="card">
+    <img src="{{ url_for('static', filename='img/' ~ (p.image or 'placeholder.png')) }}" alt="{{ p.name }}">
+    <h3>{{ p.name }}</h3>
+    <div class="muted">{{ p.category }}</div>
+    <div class="price">${{ '%.2f'|format(p.price) }}</div>
+
+    <!-- add class below -->
+    <form class="add-to-cart-form" method="post" action="{{ url_for('add_to_cart') }}">
+      <input type="hidden" name="product_id" value="{{ p.id }}">
+      <label>Qty <input type="number" min="1" value="1" name="qty"></label>
+      <button class="btn" type="submit">Add to Cart</button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Success Modal (once) -->
+<div id="addToCartModal" class="modal" aria-hidden="true" role="dialog" aria-labelledby="modalTitle">
+    <div class="modal__dialog">
+{#    <div class="modal__icon">✓</div>#}
+        <div class="modal__icon">
+                  <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                    <circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/>
+                    <path class="checkmark__check" fill="none" d="M14 27l7 7 16-16"/>
+                  </svg>
+        </div>
+                <h2 class="modal__title">Add To Cart</h2>
+                <p class="modal__subtitle">Successfully!</p>
+                <button type="button" class="modal__btn" id="modalOkBtn">OK</button>
+    </div>
+</div>
+
+<!-- Script: intercept submit and open modal -->
+<script>
+(function () {
+  const modal = document.getElementById('addToCartModal');
+  const okBtn = document.getElementById('modalOkBtn');
+
+  function openModal() {
+    modal.classList.add('show');
+    modal.setAttribute('aria-hidden', 'false');
+    okBtn.focus();
+  }
+  function closeModal() {
+    modal.classList.remove('show');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+  okBtn?.addEventListener('click', closeModal);
+  modal?.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+  document.querySelectorAll('form.add-to-cart-form').forEach((form) => {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(form);
+
+      try {
+        const res = await fetch(form.action, {
+          method: 'POST',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          body: formData
+        });
+        const data = await res.json();
+
+        if (data?.ok) {
+          // update cart badge in top nav if present
+          const badge = document.querySelector('.cart-link .badge');
+          if (badge) {
+            badge.textContent = data.cart_count;
+            badge.setAttribute('aria-label', `${data.cart_count} items`);
+          } else if (data.cart_count > 0) {
+            const link = document.querySelector('.cart-link');
+            if (link) {
+              const span = document.createElement('span');
+              span.className = 'badge';
+              span.textContent = data.cart_count;
+              span.setAttribute('aria-label', `${data.cart_count} items`);
+              link.appendChild(span);
+            }
+          }
+          openModal();
+        } else {
+          form.submit(); // graceful fallback
+        }
+      } catch (err) {
+        console.error('Add to cart failed', err);
+        form.submit(); // fallback
+      }
+    });
+  });
+})();
+</script>
+{% endblock %}

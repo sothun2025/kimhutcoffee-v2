@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kimhut Café</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">KimhutCaf&eacute;</div>
+  <button class="nav-toggle" id="navToggle" aria-label="Toggle menu" aria-expanded="false">☰</button>
+  <!-- Nav links -->
+  <nav id="siteNav" class="nav">
+    <a href="{{ url_for('home') }}">Home</a>
+{#    <a href="{{ url_for('products') }}">Menu</a>#}
+  <div class="nav-item has-dropdown">
+  <a href="{{ url_for('products') }}" class="nav-link">Menu</a>
+      <div class="dropdown">
+        <a href="{{ url_for('products') }}"
+           class="{{ 'active' if selected_nav_category|lower == 'all' else '' }}">All</a>
+        {% for c in categories_nav %}
+          <a href="{{ url_for('products', category=c) }}"
+             class="{{ 'active' if selected_nav_category|lower == c|lower else '' }}">{{ c }}</a>
+        {% endfor %}
+      </div>
+    </div>
+
+    <a href="{{ url_for('about') }}">About Us</a>
+    <a href="{{ url_for('contact') }}">Contact</a>
+      <a href="{{ url_for('cart') }}" class="cart-link">
+          Cart
+          {% if cart_count %}
+            <span class="badge" aria-label="{{ cart_count }} items">{{ cart_count }}</span>
+          {% endif %}
+      </a>
+
+  <form class="nav-search" action="{{ url_for('products') }}" method="get" role="search" aria-label="Search menu">
+  <input type="text" name="q" value="{{ search_q }}" placeholder="Search menu…">
+  <button class="btn" type="submit">Search</button>
+</form>
+
+  </nav>
+</header>
+
+<main class="container">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="flash">
+      {% for cat, msg in messages %}
+        <div class="flash-item">{{ msg }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="footer">&copy; {{ 2025 }} Kimhut Caf&eacute; · Built By Mrr.sothun</footer>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('navToggle');
+  const nav = document.getElementById('siteNav');
+
+  // Hamburger open/close
+  if (btn && nav) {
+    btn.addEventListener('click', () => {
+      const open = nav.classList.toggle('open');
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
+    // Close after clicking a link, EXCEPT the Menu header on mobile
+    nav.querySelectorAll('a').forEach(a => {
+      a.addEventListener('click', (e) => {
+        const isDropdownHeader = a.classList.contains('nav-link') && a.closest('.has-dropdown');
+        if (isDropdownHeader) return; // allow the dropdown to open, don't close the nav
+        if (nav.classList.contains('open')) {
+          nav.classList.remove('open');
+          btn.setAttribute('aria-expanded', 'false');
+        }
+      });
+    });
+  }
+
+  // Toggle Menu dropdown on mobile only
+  document.querySelectorAll('.has-dropdown > .nav-link').forEach(link => {
+    link.addEventListener('click', (e) => {
+      const isMobile = window.matchMedia('(max-width: 768px)').matches;
+      if (isMobile) {
+        e.preventDefault();
+        link.parentElement.classList.toggle('open');
+      }
+    });
+  });
+});
+</script>
+
+</body>
+</html>

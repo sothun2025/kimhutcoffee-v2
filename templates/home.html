@@ -1,0 +1,126 @@
+{#{% extends "base.html" %}#}
+{#{% block content %}#}
+{#<section class="hero">#}
+{#  <h1>Welcome to Kimhut Caf&eacute;</h1>#}
+{#  <p>Fresh coffee, cozy vibes, and quick checkout.</p>#}
+{#  <a class="btn" href="{{ url_for('products') }}">Browse Menu</a>#}
+{#</section>#}
+{#{% endblock %}#}
+
+{% extends "base.html" %}
+{% block content %}
+<section class="slider" id="homeSlider" aria-label="Featured items">
+  <div class="slides">
+    <figure class="slide is-active">
+      <img src="{{ url_for('static', filename='img/Hot Latte.jpg') }}" alt="Hot Latte">
+      <figcaption>
+        <h2>Hot Latte</h2>
+{#        <p>Rich & foamy—perfect morning start.</p>#}
+        <a class="btn" href="{{ url_for('products', category='Coffee') }}">Order now</a>
+      </figcaption>
+    </figure>
+
+    <figure class="slide">
+      <img src="{{ url_for('static', filename='img/Hot Cappuccino .jpg') }}" alt="Hot Cappuccino">
+      <figcaption>
+        <h2>Hot Cappuccino</h2>
+{#        <p>Cool down with silky espresso.</p>#}
+        <a class="btn" href="{{ url_for('products', category='Coffee') }}">Order now</a>
+      </figcaption>
+    </figure>
+
+    <figure class="slide">
+      <img src="{{ url_for('static', filename='img/Storbery.jpg') }}" alt="Bluebery">
+      <figcaption>
+        <h2>Bluebery</h2>
+{#        <p>Flaky, buttery goodness.</p>#}
+        <a class="btn" href="{{ url_for('products', category='Drink') }}">Order now</a>
+      </figcaption>
+    </figure>
+
+    <figure class="slide">
+      <img src="{{ url_for('static', filename='img/Avocado.jpg') }}" alt="Avocado">
+      <figcaption>
+        <h2>Avocado</h2>
+{#        <p>Sweet berries in every bite.</p>#}
+        <a class="btn" href="{{ url_for('products', category='Drink') }}">Order now</a>
+      </figcaption>
+    </figure>
+  </div>
+
+  <button class="slider-btn prev" aria-label="Previous slide">‹</button>
+  <button class="slider-btn next" aria-label="Next slide">›</button>
+  <div class="slider-dots" aria-label="Slide navigation"></div>
+
+
+  <a href="{{ url_for('products') }}" class="btn btn-primary continue-order">
+    Continue to Order
+  </a>
+</section>
+
+    <script>
+    (() => {
+  function Slider(root, { interval = 5000 } = {}) {
+    const wrap = root.querySelector('.slides');
+    const slides = Array.from(root.querySelectorAll('.slide'));
+    const prev = root.querySelector('.prev');
+    const next = root.querySelector('.next');
+    const dotsWrap = root.querySelector('.slider-dots');
+
+    let i = 0, t = null, dragging = false, startX = 0, curX = 0;
+
+    function set(n) {
+      i = (n + slides.length) % slides.length;
+      wrap.style.transform = `translateX(-${i * 100}%)`;
+      dotsWrap.querySelectorAll('button').forEach((b, idx) => b.classList.toggle('active', idx === i));
+    }
+    function start(){ stop(); t = setInterval(() => set(i + 1), interval); }
+    function stop(){ if (t) { clearInterval(t); t = null; } }
+
+    // dots
+    slides.forEach((_, idx) => {
+      const b = document.createElement('button');
+      if (idx === 0) b.classList.add('active');
+      b.addEventListener('click', () => { set(idx); start(); });
+      dotsWrap.appendChild(b);
+    });
+
+    prev.addEventListener('click', () => { set(i - 1); start(); });
+    next.addEventListener('click', () => { set(i + 1); start(); });
+
+    root.addEventListener('mouseenter', stop);
+    root.addEventListener('mouseleave', start);
+
+    // swipe (pointer events)
+    wrap.addEventListener('pointerdown', (e) => {
+      dragging = true; startX = e.clientX; curX = startX; stop();
+      wrap.style.transition = 'none';
+    });
+    window.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      curX = e.clientX;
+      const dx = curX - startX;
+      wrap.style.transform = `translateX(calc(-${i * 100}% + ${dx}px))`;
+    });
+    window.addEventListener('pointerup', () => {
+      if (!dragging) return;
+      const dx = curX - startX;
+      wrap.style.transition = 'transform .5s ease';
+      if (Math.abs(dx) > 50) set(i + (dx < 0 ? 1 : -1));
+      else set(i);
+      dragging = false; start();
+    });
+
+    set(0); start();
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const s = document.getElementById('homeSlider');
+    if (s) Slider(s, { interval: 5000 });
+  });
+})();
+
+    </script>
+{% endblock %}
+
+

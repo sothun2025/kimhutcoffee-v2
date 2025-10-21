@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Your Cart</h2>
+<form method="post" action="{{ url_for('update_cart') }}">
+  <table class="table">
+    <thead>
+      <tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr>
+    </thead>
+    <tbody>
+    {% for i in items %}
+      <tr>
+        <td>{{ i.name }}</td>
+        <td><input type="number" min="0" name="qty_{{ i.id }}" value="{{ i.qty }}"></td>
+        <td>${{ i.price }}</td>
+        <td>${{ i.line_total }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <div class="subtotal">Subtotal: <b>${{ subtotal }}</b></div>
+  <div class="row">
+    <button class="btn" type="submit">Update Cart</button>
+    <a class="btn" href="{{ url_for('checkout') }}">Checkout</a>
+  </div>
+</form>
+{% endblock %}

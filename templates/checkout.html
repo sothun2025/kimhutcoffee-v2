@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Checkout</h2>
+<div class="grid two">
+  <div>
+    <h3>Customer Info</h3>
+    <form method="post" class="card">
+      <label>Name
+        <input name="name" required>
+      </label>
+      <label>Address
+        <input name="address" required>
+      </label>
+      <label>Email
+        <input type="email" name="email" required>
+      </label>
+      <label>Phone
+        <input name="phone" required>
+      </label>
+      <button class="btn" type="submit">Place Order</button>
+    </form>
+  </div>
+  <div>
+    <h3>Order Summary</h3>
+    <div class="card">
+      <ul>
+        {% for i in items %}
+          <li>{{ i.qty }} × {{ i.name }} — ${{ i.line_total }}</li>
+        {% endfor %}
+      </ul>
+      <hr>
+      <p>Subtotal: <b>${{ subtotal }}</b></p>
+    </div>
+  </div>
+</div>
+{% endblock %}

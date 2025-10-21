@@ -1,0 +1,126 @@
+[
+  {
+    "id": 1,
+    "name": "Hot Cappuccino",
+    "price": 0.01,
+    "currency": "$",
+    "image": "Hot Cappuccino .jpg",
+    "category": "Coffee"
+  },
+  {
+    "id": 2,
+    "name": "Hot Latte",
+    "price": 0.88,
+    "currency": "$",
+    "image": "Hot Latte.jpg",
+    "category": "Coffee"
+  },
+  {
+    "id": 3,
+    "name": "Espresso",
+    "price": 0.88,
+    "currency": "$",
+    "image": "Espresso.jpg",
+    "category": "Coffee"
+  },
+  {
+    "id": 4,
+    "name": "Hot Americano",
+    "price": 0.88,
+    "currency": "$",
+    "image": "Hot Americano.jpg",
+    "category": "Coffee"
+  },
+    {
+    "id": 5,
+    "name": "Iced Americano",
+    "price": 0.88,
+    "currency": "$",
+    "image": "Iced Americano.jpg",
+    "category": "Coffee"
+  },
+  {
+    "id": 6,
+    "name": "Iced Latte",
+    "price": 0.88,
+    "currency": "$",
+    "image": "Iced Latte.jpg",
+    "category": "Coffee"
+  },
+  {
+    "id": 7,
+    "name": "Iced Milk",
+    "price": 0.88,
+    "currency": "$",
+    "image": "Iced Milk.jpg",
+    "category": "Coffee"
+  },
+   {
+    "id": 8,
+    "name": "Chocolate",
+    "price": 1,
+    "currency": "$",
+    "image": "Chocolate.jpg",
+    "category": "Coffee"
+  },
+   {
+    "id": 9,
+    "name": "Passion Raw Milk",
+    "price": 1,
+    "currency": "$",
+    "image": "passion.jpg",
+    "category": "Drink"
+  }
+  ,
+   {
+    "id":10,
+    "name": "Passion Soda",
+    "price": 1,
+    "currency": "$",
+    "image": "passion1.jpg",
+    "category": "Drink"
+  }
+  ,
+   {
+    "id": 11,
+    "name": "Passion MilK",
+    "price": 0.88,
+    "currency": "$",
+    "image": "passion-mill.jpg",
+    "category": "Drink"
+  }
+  ,
+   {
+    "id": 12,
+    "name": "Avocado",
+    "price": 1,
+    "currency": "$",
+    "image": "Avocado.jpg",
+    "category": "Drink"
+  },
+   {
+    "id": 13,
+    "name": "Green Tea",
+    "price": 1,
+    "currency": "$",
+    "image": "Green-tea.jpg",
+    "category": "Drink"
+  },
+   {
+    "id": 14,
+    "name": "Bluebery",
+    "price": 1,
+    "currency": "$",
+    "image": "Storbery.jpg",
+    "category": "Drink"
+  },
+   {
+    "id": 15,
+    "name": "Storbery",
+    "price": 1,
+    "currency": "$",
+    "image": "Storbery1.jpg",
+    "category": "Drink"
+  }
+
+]
