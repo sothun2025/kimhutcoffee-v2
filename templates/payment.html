@@ -109,5 +109,33 @@
   pollId = setInterval(pollPaymentOnce, POLL_MS);
   // Also allow a manual “I’ve Paid” click to trigger an immediate check
   document.getElementById('paid').addEventListener('click', pollPaymentOnce);
+
+  {#AWS#}
 </script>
+    <script>
+  const md5 = "{{ md5 }}";
+  let stop = false;
+  async function poll() {
+    if (stop) return;
+    try {
+      const res = await fetch("/check-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ md5 }),
+        credentials: "same-origin" // OK both local & prod; use "include" if cross-site
+      });
+      const data = await res.json();
+      if (data.success) {
+        stop = true;
+        window.location = "/checkout/success";
+      } else {
+        setTimeout(poll, 3000);
+      }
+    } catch (e) {
+      setTimeout(poll, 3000);
+    }
+  }
+  poll();
+</script>
+
 {% endblock %}
