@@ -27,115 +27,95 @@
     <div class="khqr-time" id="timer"></div>
     <hr />
 
-    <!-- Put the id on the ACTUAL QR container so we can hide it -->
     <div class="khqr-qwrap" id="qr-section">
       <img class="khqr-qr" src="{{ url_for('static', filename='qrcode.png') }}" alt="KHQR Code" />
     </div>
     <div class="khqr-subtle">Scan with your banking app to pay.</div>
 
-    <!-- Status message -->
     <div id="payment-status" style="font-weight:600; margin:10px 0;">
       Waiting for payment...
     </div>
   </div>
   <div class="actions">
-    <button id="paid" class="btn primary">I’ve Paid</button>
-    <a class="btn" href="{{ url_for('products') }}">Continue to Shoping</a>
+    <button id="paid" class="btn primary">I've Paid</button>
+    <a class="btn" href="{{ url_for('products') }}">Continue Shopping</a>
   </div>
 </div>
 
 <script>
-  // countdown on the header
+  // ---------- Countdown ----------
   let seconds = {{ seconds|int }};
   const timerEl = document.getElementById('timer');
+  const statusEl = document.getElementById('payment-status');
+  const qrSection = document.getElementById('qr-section');
+  const btnPaid = document.getElementById('paid');
+
   (function tick(){
     const m = String(Math.floor(seconds/60)).padStart(2,'0');
     const s = String(seconds%60).padStart(2,'0');
     timerEl.textContent = m + ":" + s;
-    if (seconds > 0) { seconds--; setTimeout(tick, 1000); }
+    if (seconds > 0) {
+      seconds--; setTimeout(tick, 1000);
+    } else {
+      // Expired UI (server-side check still allowed)
+      statusEl.textContent = "QR expired. You can still tap 'I've Paid' to re-check.";
+      statusEl.style.color = "#b00";
+    }
   })();
 
+  // ---------- Polling (single loop, cookie included) ----------
   const md5 = "{{ md5 }}";
+  const CHECK_URL = "{{ url_for('check_payment') }}";
   const POLL_MS = 3000;
-  let pollId = null;
+
+  let stop = false;
+  let inFlight = false;
+  let pollTimer = null;
 
   function markSuccess() {
-    // stop polling
-    if (pollId) clearInterval(pollId);
-
-    // hide the displayed QR
-    const qr = document.getElementById('qr-section');
-    if (qr) qr.style.display = 'none';
-
-    // show green success message
-    const st = document.getElementById('payment-status');
-    st.style.color = 'green';
-    st.style.fontSize = '1.1rem';
-    st.textContent = '✅ Payment Success';
-
-    // disable the "I’ve Paid" button
-    const btn = document.getElementById('paid');
-    if (btn) { btn.disabled = true; btn.style.opacity = .6; }
+    stop = true;
+    if (pollTimer) clearTimeout(pollTimer);
+    if (qrSection) qrSection.style.display = 'none';
+    statusEl.style.color = 'green';
+    statusEl.style.fontSize = '1.1rem';
+    statusEl.textContent = '✅ Payment Success';
+    if (btnPaid) { btnPaid.disabled = true; btnPaid.style.opacity = .6; }
+    // redirect after a short pause
+    setTimeout(() => { window.location = "{{ url_for('checkout_success') }}"; }, 900);
   }
 
-  async function pollPaymentOnce() {
+  async function pollOnce() {
+    if (stop || inFlight) return;
+    inFlight = true;
     try {
-      const res = await fetch("{{ url_for('check_payment') }}", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ md5 })
-      });
-      const data = await res.json();
-
-      // Be robust to different server payloads
-      const txnStatus = (data?.data?.transaction_status || data?.transaction_status || "").toUpperCase();
-      const ok = (data?.success === true) || (txnStatus === "SUCCESS") || (data?.responseCode === 0);
-
-      // Update status text if provided
-      if (typeof data?.message === 'string' && data.message) {
-        document.getElementById('payment-status').textContent = data.message;
-      }
-
-      if (ok) {
-        markSuccess();
-      }
-    } catch (e) {
-      // optional: show a subtle network hiccup
-      // document.getElementById('payment-status').textContent = 'Rechecking...';
-    }
-  }
-
-  // Start polling every 3s
-  pollId = setInterval(pollPaymentOnce, POLL_MS);
-  // Also allow a manual “I’ve Paid” click to trigger an immediate check
-  document.getElementById('paid').addEventListener('click', pollPaymentOnce);
-
-  {#AWS#}
-</script>
-    <script>
-  const md5 = "{{ md5 }}";
-  let stop = false;
-  async function poll() {
-    if (stop) return;
-    try {
-      const res = await fetch("/check-payment", {
+      const res = await fetch(CHECK_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ md5 }),
-        credentials: "same-origin" // OK both local & prod; use "include" if cross-site
+        credentials: "same-origin"   // 🔴 important for AWS (session cookie)
+        // if this page is on a different (sub)domain, use "include" and set SAMESITE=None in Flask
       });
-      const data = await res.json();
-      if (data.success) {
-        stop = true;
-        window.location = "/checkout/success";
-      } else {
-        setTimeout(poll, 3000);
+      const data = await res.json().catch(() => ({}));
+
+      // Optional: show server message
+      if (typeof data.message === 'string' && data.message) {
+        statusEl.textContent = data.message;
+      }
+
+      if (data && data.success === true) {
+        markSuccess();
+        return;
       }
     } catch (e) {
-      setTimeout(poll, 3000);
+      // network hiccup: keep polling
+    } finally {
+      inFlight = false;
+      if (!stop) pollTimer = setTimeout(pollOnce, POLL_MS);
     }
   }
-  poll();
-</script>
 
+  // Start
+  pollOnce();
+  if (btnPaid) btnPaid.addEventListener('click', () => { pollOnce(); });
+</script>
 {% endblock %}
