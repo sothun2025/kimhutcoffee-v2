@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Pay with KHQR{% endblock %}
+{% block content %}
+<style>
+  .khqr-card { max-width:430px;margin:0 auto;background:#fff;border:1px solid #ddd;border-radius:10px;overflow:hidden;box-shadow:0 6px 20px rgba(0,0,0,.06); }
+  .khqr-header { background:#D3222A;color:#fff;padding:14px 16px;font-weight:800;letter-spacing:.5px; }
+  .khqr-body { padding:20px; }
+  .khqr-name { text-align:center;font-weight:700;color:#333;margin-top:6px; }
+  .khqr-amount { text-align:center;font-size:44px;line-height:1.1;margin:8px 0 0; }
+  .khqr-cur { text-align:center;color:#666;margin-top:2px;font-weight:600; }
+  .khqr-time { text-align:center;color:#8aa;margin:6px 0 10px; }
+  hr { border:none;border-top:1px dashed #e3e6ea;margin:10px 0 14px; }
+  .khqr-qwrap { display:flex;justify-content:center;margin:8px 0 16px; }
+  .khqr-qr { width:280px;height:280px;background:#fff; }
+  .khqr-subtle { text-align:center;color:#97a1a9;font-size:12px;margin-bottom:12px; }
+  .actions { display:flex;gap:10px;padding:0 20px 20px; }
+  .btn { flex:1;padding:10px 14px;border-radius:8px;border:1px solid #ddd;cursor:pointer;background:#fff; }
+  .btn.primary { background:#111;color:#fff;border-color:#111; }
+</style>
+
+<div class="khqr-card">
+  <div class="khqr-header">KHQR</div>
+  <div class="khqr-body">
+    <div class="khqr-name">{{ name }}</div>
+    <div class="khqr-amount">{{ amount }}</div>
+    <div class="khqr-cur">{{ currency }}</div>
+    <div class="khqr-time" id="timer"></div>
+    <hr />
+
+    <div class="khqr-qwrap" id="qr-section">
+      <img class="khqr-qr" src="{{ url_for('static', filename='qrcode.png') }}" alt="KHQR Code" />
+    </div>
+    <div class="khqr-subtle">Scan with your banking app to pay.</div>
+
+    <div id="payment-status" style="font-weight:600; margin:10px 0;">
+      Waiting for payment...
+    </div>
+  </div>
+  <div class="actions">
+    <button id="paid" class="btn primary">I've Paid</button>
+    <a class="btn" href="{{ url_for('products') }}">Continue Shopping</a>
+  </div>
+</div>
+
+<script>
+  // ---------- Countdown ----------
+  let seconds = {{ seconds|int }};
+  const timerEl = document.getElementById('timer');
+  const statusEl = document.getElementById('payment-status');
+  const qrSection = document.getElementById('qr-section');
+  const btnPaid = document.getElementById('paid');
+
+  (function tick(){
+    const m = String(Math.floor(seconds/60)).padStart(2,'0');
+    const s = String(seconds%60).padStart(2,'0');
+    timerEl.textContent = m + ":" + s;
+    if (seconds > 0) {
+      seconds--; setTimeout(tick, 1000);
+    } else {
+      // Expired UI (server-side check still allowed)
+      statusEl.textContent = "QR expired. You can still tap 'I've Paid' to re-check.";
+      statusEl.style.color = "#b00";
+    }
+  })();
+
+  // ---------- Polling (single loop, cookie included) ----------
+  const md5 = "{{ md5 }}";
+  const CHECK_URL = "{{ url_for('check_payment') }}";
+  const POLL_MS = 3000;
+
+  let stop = false;
+  let inFlight = false;
+  let pollTimer = null;
+
+  function markSuccess() {
+    stop = true;
+    if (pollTimer) clearTimeout(pollTimer);
+    if (qrSection) qrSection.style.display = 'none';
+    statusEl.style.color = 'green';
+    statusEl.style.fontSize = '1.1rem';
+    statusEl.textContent = '✅ Payment Success';
+    if (btnPaid) { btnPaid.disabled = true; btnPaid.style.opacity = .6; }
+    // redirect after a short pause
+    setTimeout(() => { window.location = "{{ url_for('checkout_success') }}"; }, 900);
+  }
+
+  async function pollOnce() {
+    if (stop || inFlight) return;
+    inFlight = true;
+    try {
+      const res = await fetch(CHECK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ md5 }),
+        credentials: "same-origin"   // 🔴 important for AWS (session cookie)
+        // if this page is on a different (sub)domain, use "include" and set SAMESITE=None in Flask
+      });
+      const data = await res.json().catch(() => ({}));
+
+      // Optional: show server message
+      if (typeof data.message === 'string' && data.message) {
+        statusEl.textContent = data.message;
+      }
+
+      if (data && data.success === true) {
+        markSuccess();
+        return;
+      }
+    } catch (e) {
+      // network hiccup: keep polling
+    } finally {
+      inFlight = false;
+      if (!stop) pollTimer = setTimeout(pollOnce, POLL_MS);
+    }
+  }
+
+  // Start
+  pollOnce();
+  if (btnPaid) btnPaid.addEventListener('click', () => { pollOnce(); });
+</script>
+{% endblock %}
