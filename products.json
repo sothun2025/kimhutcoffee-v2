@@ -2,7 +2,7 @@
   {
     "id": 1,
     "name": "Hot Cappuccino",
-    "price": 0.01,
+    "price": 0.025,
     "currency": "$",
     "image": "Hot Cappuccino .jpg",
     "category": "Coffee"

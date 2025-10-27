@@ -56,8 +56,70 @@
 
   {% block content %}{% endblock %}
 </main>
+<footer class="site-footer" role="contentinfo">
+    <div class="footer-inner">
+    <!-- Brand / intro -->
+    <div class="footer-col">
+      <h4>Kimhut Café</h4>
+      <p>Fresh coffee & comfort bites. Scan & pay via <strong>KHQR</strong> — in <strong>USD</strong> or <strong>KHR</strong>.</p>
+      <div class="pay-badges" aria-label="Supported payments">
+        <span class="badge">KHQR</span>
+        <span class="badge">USD</span>
+        <span class="badge">KHR</span>
+      </div>
+    </div>
 
-<footer class="footer">&copy; {{ 2025 }} Kimhut Caf&eacute; · Built By Mrr.sothun</footer>
+    <!-- Quick links -->
+    <nav class="footer-col" aria-label="Quick links">
+      <h4>Quick Links</h4>
+      <ul>
+        <li><a href="{{ url_for('home') }}">Home</a></li>
+        <li><a href="{{ url_for('products') }}">Menu</a></li>
+        <li><a href="{{ url_for('about') }}">About Us</a></li>
+        <li><a href="{{ url_for('contact') }}">Contact</a></li>
+        <li><a href="{{ url_for('cart') }}">Cart ({{ cart_count or 0 }})</a></li>
+      </ul>
+    </nav>
+
+    <!-- Contact / location -->
+    <div class="footer-col">
+      <h4>Contact</h4>
+      <ul>
+        <li>Phnom Penh, Cambodia</li>
+        <li>Phone: <a href="tel:+855888356210">+855 888 356 210</a></li>
+        <li>Email: <a href="mailto:{{ config.get('MAIL_DEFAULT_SENDER','orders@example.com') }}">
+          {{ config.get('MAIL_DEFAULT_SENDER','orders@example.com') }}</a></li>
+      </ul>
+    </div>
+
+    <!-- Hours -->
+    <div class="footer-col">
+      <h4>Opening Hours</h4>
+      <ul>
+        <li>Mon–Fri: 7:30 – 20:30</li>
+        <li>Sat–Sun: 8:00 – 20:00</li>
+        <li>Public holidays: Call ahead</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="footer-bottom">
+    © <span id="year"></span> Kimhut Café · Built by sothun
+    <a class="to-top" href="#" aria-label="Back to top">↑ Top</a>
+  </div>
+
+  <script>
+    // Auto year + smooth scroll to top
+    (function(){
+      const y = document.getElementById('year');
+      if (y) y.textContent = new Date().getFullYear();
+      document.querySelector('.to-top')?.addEventListener('click', (e)=>{
+        e.preventDefault();
+        window.scrollTo({top:0, behavior:'smooth'});
+      });
+    })();
+  </script>
+</footer>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {

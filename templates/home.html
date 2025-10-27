@@ -1,48 +1,41 @@
-{#{% extends "base.html" %}#}
-{#{% block content %}#}
-{#<section class="hero">#}
-{#  <h1>Welcome to Kimhut Caf&eacute;</h1>#}
-{#  <p>Fresh coffee, cozy vibes, and quick checkout.</p>#}
-{#  <a class="btn" href="{{ url_for('products') }}">Browse Menu</a>#}
-{#</section>#}
-{#{% endblock %}#}
-
 {% extends "base.html" %}
 {% block content %}
+
+<!-- ========== Slider ========== -->
 <section class="slider" id="homeSlider" aria-label="Featured items">
   <div class="slides">
-    <figure class="slide is-active">
-      <img src="{{ url_for('static', filename='img/Hot Latte.jpg') }}" alt="Hot Latte">
+     <!-- Slide 1 -->
+    <figure class="slide" data-kind="image">
+      <img src="{{ url_for('static', filename='img/Hot Latte.jpg') }}" alt="Hot Latte" loading="lazy" decoding="async">
       <figcaption>
         <h2>Hot Latte</h2>
-{#        <p>Rich & foamy—perfect morning start.</p>#}
         <a class="btn" href="{{ url_for('products', category='Coffee') }}">Order now</a>
       </figcaption>
     </figure>
 
-    <figure class="slide">
-      <img src="{{ url_for('static', filename='img/Hot Cappuccino .jpg') }}" alt="Hot Cappuccino">
+    <!-- Slide 2 -->
+    <figure class="slide" data-kind="image">
+      <img src="{{ url_for('static', filename='img/Hot Cappuccino .jpg') }}" alt="Hot Cappuccino" loading="lazy" decoding="async">
       <figcaption>
         <h2>Hot Cappuccino</h2>
-{#        <p>Cool down with silky espresso.</p>#}
         <a class="btn" href="{{ url_for('products', category='Coffee') }}">Order now</a>
       </figcaption>
     </figure>
 
-    <figure class="slide">
-      <img src="{{ url_for('static', filename='img/Storbery.jpg') }}" alt="Bluebery">
+    <!-- Slide 3 -->
+    <figure class="slide" data-kind="image">
+      <img src="{{ url_for('static', filename='img/Storbery.jpg') }}" alt="Blueberry" loading="lazy" decoding="async">
       <figcaption>
-        <h2>Bluebery</h2>
-{#        <p>Flaky, buttery goodness.</p>#}
+        <h2>Blueberry</h2>
         <a class="btn" href="{{ url_for('products', category='Drink') }}">Order now</a>
       </figcaption>
     </figure>
 
-    <figure class="slide">
-      <img src="{{ url_for('static', filename='img/Avocado.jpg') }}" alt="Avocado">
+    <!-- Slide 4 -->
+    <figure class="slide" data-kind="image">
+      <img src="{{ url_for('static', filename='img/Avocado.jpg') }}" alt="Avocado" loading="lazy" decoding="async">
       <figcaption>
         <h2>Avocado</h2>
-{#        <p>Sweet berries in every bite.</p>#}
         <a class="btn" href="{{ url_for('products', category='Drink') }}">Order now</a>
       </figcaption>
     </figure>
@@ -51,16 +44,11 @@
   <button class="slider-btn prev" aria-label="Previous slide">‹</button>
   <button class="slider-btn next" aria-label="Next slide">›</button>
   <div class="slider-dots" aria-label="Slide navigation"></div>
-
-
-  <a href="{{ url_for('products') }}" class="btn btn-primary continue-order">
-    Continue to Order
-  </a>
+{#  <a href="{{ url_for('products') }}" class="continue-order">Continue to Order</a>#}
 </section>
-
-    <script>
-    (() => {
-  function Slider(root, { interval = 5000 } = {}) {
+<script>
+(() => {
+  function Slider(root, { interval = 200 } = {}) {
     const wrap = root.querySelector('.slides');
     const slides = Array.from(root.querySelectorAll('.slide'));
     const prev = root.querySelector('.prev');
@@ -80,6 +68,7 @@
     // dots
     slides.forEach((_, idx) => {
       const b = document.createElement('button');
+      b.setAttribute('aria-label', `Go to slide ${idx + 1}`);
       if (idx === 0) b.classList.add('active');
       b.addEventListener('click', () => { set(idx); start(); });
       dotsWrap.appendChild(b);
@@ -91,7 +80,7 @@
     root.addEventListener('mouseenter', stop);
     root.addEventListener('mouseleave', start);
 
-    // swipe (pointer events)
+    // swipe
     wrap.addEventListener('pointerdown', (e) => {
       dragging = true; startX = e.clientX; curX = startX; stop();
       wrap.style.transition = 'none';
@@ -116,11 +105,27 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     const s = document.getElementById('homeSlider');
-    if (s) Slider(s, { interval: 5000 });
+    if (s) Slider(s, { interval: 2000 });
   });
 })();
+</script>
 
-    </script>
+<!-- ========== New Video Section BELOW Slider ========== -->
+<section class="intro" aria-label="About Kimhut Café">
+    <div>
+    <h2>Welcome to Kimhut Café</h2>
+    <p>Experience the perfect blend of rich aroma and cozy atmosphere. Enjoy quick checkout with <b>KHQR</b> — pay easily in <b>USD</b> or <b>KHR</b>.</p>
+    <p>Browse our menu and order online. Fresh coffee, comfort bites, fast pickup.</p>
+    <p><a href="{{ url_for('products') }}" class="continue-order">Shop the Menu</a></p>
+  </div>
+
+  <!-- Video (place your files in static/media/) -->
+  <video autoplay muted loop playsinline preload="metadata"
+         poster="{{ url_for('static', filename='media/hero.jpg') }}">
+    <source src="{{ url_for('static', filename='media/hero.webm') }}" type="video/webm">
+    <source src="{{ url_for('static', filename='media/Demo.mp4') }}" type="video/mp4">
+    Your browser does not support the video tag.
+  </video>
+</section>
+
 {% endblock %}
-
-

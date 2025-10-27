@@ -1,10 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
 <h2>Checkout</h2>
+
 <div class="grid two">
   <div>
     <h3>Customer Info</h3>
-    <form method="post" class="card">
+    <form method="post" class="card"
+          id="checkout-form"
+          data-subtotal-usd="{{ subtotal }}"
+          data-rate="{{ exchange_rate_khr or 4000 }}">
       <label>Name
         <input name="name" required>
       </label>
@@ -17,9 +21,33 @@
       <label>Phone
         <input name="phone" required>
       </label>
-      <button class="btn" type="submit">Place Order</button>
+
+      <!-- Currency selection -->
+      <fieldset style="margin-top: .5rem;">
+        <legend class="fw-semibold">Payment Currency</legend>
+        <label class="inline">
+          <input type="radio" name="currency" value="USD" checked>
+          USD ($)
+        </label>
+        <label class="inline" style="margin-left: 1rem;">
+          <input type="radio" name="currency" value="KHR">
+          KHR (៛)
+        </label>
+        <div class="muted" style="margin-top:.25rem;">
+          អត្រាប្តូរ ($→៛): <b id="rate-text">{{ exchange_rate_khr or 4000 }}</b> ៛/$
+        </div>
+      </fieldset>
+
+      <!-- You will pay preview -->
+      <div class="notice" style="margin-top:.75rem;">
+        You will pay:
+        <b id="pay-amount">${{ subtotal }} USD</b>
+      </div>
+
+      <button class="btn" type="submit" style="margin-top:.75rem;">Place Order</button>
     </form>
   </div>
+
   <div>
     <h3>Order Summary</h3>
     <div class="card">
@@ -30,7 +58,47 @@
       </ul>
       <hr>
       <p>Subtotal: <b>${{ subtotal }}</b></p>
+      <p class="muted" id="khr-hint">≈ <span id="subtotal-khr">—</span> ៛</p>
     </div>
   </div>
 </div>
+
+<script>
+(function () {
+  const form = document.getElementById('checkout-form');
+  const payEl = document.getElementById('pay-amount');
+  const khrHintEl = document.getElementById('subtotal-khr');
+
+  const rate = Number(form.dataset.rate || 4000);
+  const usd = Number(form.dataset.subtotalUsd || form.dataset.subtotalUsd === "0" ? form.dataset.subtotalUsd : "{{ subtotal }}");
+
+  function roundTo100Riel(v) {
+    // បង្គត់ទៅជាទីកន្លែង 100៛
+    return Math.round(v / 100) * 100;
+  }
+
+  function formatUSD(v) { return (Number(v)).toFixed(2); }
+  function formatKHR(v) { return String(Math.max(0, Math.trunc(v))); }
+
+  // Show KHR approx under summary
+  const khrApprox = roundTo100Riel(usd * rate);
+  if (khrHintEl) khrHintEl.textContent = formatKHR(khrApprox);
+
+  function updatePreview() {
+    const currency = (new FormData(form).get('currency') || 'USD').toUpperCase();
+    if (currency === 'KHR') {
+      const amountKHR = roundTo100Riel(usd * rate);
+      payEl.textContent = `${formatKHR(amountKHR)} KHR`;
+    } else {
+      payEl.textContent = `$${formatUSD(usd)} USD`;
+    }
+  }
+
+  form.addEventListener('change', (e) => {
+    if (e.target && e.target.name === 'currency') updatePreview();
+  });
+
+  updatePreview();
+})();
+</script>
 {% endblock %}

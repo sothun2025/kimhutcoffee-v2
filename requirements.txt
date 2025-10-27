@@ -7,3 +7,5 @@ qrcode[pil]
 python-dotenv
 Pillow
 bakong_khqr
+
+# @app.route("/checkout", methods=["GET", "POST"]) Edit date EXPIRES_SECONDS = 60

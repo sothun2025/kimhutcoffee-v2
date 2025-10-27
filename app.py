@@ -1,3 +1,4 @@
+import io
 import os
 import json
 import copy
@@ -7,7 +8,7 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from flask import (
     Flask, render_template, session, redirect, url_for,
-    request, flash, jsonify
+    request, flash, jsonify, Response
 )
 from flask_mail import Mail, Message
 import requests
@@ -83,8 +84,20 @@ def release_notify_lock(md5: str):
 # ----------------- TG message builder -----------------
 def build_tg_lines(order: dict) -> str:
     from html import escape
+    from decimal import Decimal, ROUND_HALF_UP
+
+    def fmt_amount(dec: Decimal, cur: str) -> str:
+        cur = (cur or "USD").upper()
+        if cur == "KHR":
+            # បង្គត់ទៅជាទីកន្លែង 100៛
+            return str(int((dec / Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP)) * 100)
+        return str(dec.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
     cust = order.get("customer", {}) or {}
     items = order.get("items", []) or []
+    currency = (order.get("currency") or "USD").upper()
+    fx = Decimal(str(order.get("fx_rate") or "0")) if currency == "KHR" else Decimal("0")
+
     lines = [
         "<b>New Paid Order</b>",
         f"Name: {escape(cust.get('name',''))}",
@@ -96,12 +109,16 @@ def build_tg_lines(order: dict) -> str:
     ]
     for it in items:
         name = escape(str(it.get("name","")))
-        qty = it.get("qty", 1)
-        line_total = it.get("line_total", "0.00")
-        lines.append(f"- {qty} x {name} (${line_total})")
-    lines.append(f"\nSubtotal: ${order.get('subtotal','0.00')} {order.get('currency','USD')}")
+        qty = int(it.get("qty", 1))
+        line_total = Decimal(str(it.get("line_total", "0")))
+        if fx > 0:
+            line_total = line_total * fx
+        lines.append(f"- {qty} x {name} ({fmt_amount(line_total, currency)} {currency})")
+
+    lines.append(f"\nSubtotal: {order.get('subtotal','0')} {currency}")
     lines.append(f"Time: {datetime.now():%Y-%m-%d %H:%M}")
     return "\n".join(lines)
+
 
 # ----------------- App factory -----------------
 def create_app():
@@ -152,6 +169,28 @@ def create_app():
         subtotal = _money(sum(i["line_total"] for i in items)) if items else _money(0)
         return items, subtotal
 
+    BAKONG_ACCOUNT = os.getenv("BAKONG_ACCOUNT", "sothun_thoeun@aclb")
+    MERCHANT_NAME = os.getenv("MERCHANT_NAME", "SOTHUN THOEUN")
+    MERCHANT_CITY = os.getenv("MERCHANT_CITY", "Phnom Penh")
+    MERCHANT_PHONE = os.getenv("MERCHANT_PHONE", "855888356210")
+    STORE_LABEL = os.getenv("STORE_LABEL", "thun-Shop")
+    TERMINAL_LABEL = os.getenv("TERMINAL_LABEL", "Cashier-01")
+    EXCHANGE_RATE_KHR = Decimal(os.getenv("EXCHANGE_RATE_KHR", "4000"))
+    def format_amount(amount: Decimal, currency: str) -> str:
+        """
+        Return string formatted per currency for KHQR.
+        USD: 2 decimals; KHR: integer riel, rounded to nearest 100៛.
+        """
+        if currency.upper() == "KHR":
+            # បង្គត់ទៅជាទីកន្លែង 100៛
+            val = int((amount / Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP)) * 100
+            return str(val)  # KHQR expects string
+        # USD
+        return str(amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+    def usd_to_khr(usd: Decimal) -> Decimal:
+        return (usd * EXCHANGE_RATE_KHR).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+
     def send_telegram(text: str) -> bool:
         token = app.config.get("TELEGRAM_BOT_TOKEN")
         chat_id = app.config.get("TELEGRAM_CHAT_ID")
@@ -172,12 +211,31 @@ def create_app():
             app.logger.exception("[Telegram] send failed")
             return False
 
-    def send_invoice_email(customer: dict, items: list, subtotal) -> bool:
+
+    def send_invoice_email(customer: dict, items: list, subtotal, currency="USD", fx_rate=None) -> bool:
         if not app.config.get("MAIL_USERNAME") or not app.config.get("MAIL_DEFAULT_SENDER"):
             app.logger.error("[Mail] MAIL_* not configured correctly")
             return False
-        lines = [f"- {i['qty']} x {i['name']} (${i['line_total']})" for i in items]
-        body = "\n".join(lines) + f"\n\nSubtotal: ${subtotal}\nTime: {datetime.now():%Y-%m-%d %H:%M}"
+
+        from decimal import Decimal, ROUND_HALF_UP
+
+        def fmt_amount(dec: Decimal, cur: str) -> str:
+            cur = (cur or "USD").upper()
+            if cur == "KHR":
+                return str(int((dec / Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP)) * 100)
+            return str(dec.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+        fx = Decimal(str(fx_rate or "0")) if (currency or "USD").upper() == "KHR" else Decimal("0")
+
+        lines = []
+        for it in items:
+            lt = Decimal(str(it.get("line_total", "0")))
+            if fx > 0:
+                lt = lt * fx
+            lines.append(f"- {it.get('qty', 1)} x {it.get('name', '')} ({fmt_amount(lt, currency)} {currency})")
+
+        body = "\n".join(lines) + f"\n\nSubtotal: {subtotal} {currency}\nTime: {datetime.now():%Y-%m-%d %H:%M}"
+
         msg = Message(
             subject="Your Kimhut Café Invoice",
             recipients=[customer.get("email") or app.config["MAIL_DEFAULT_SENDER"]],
@@ -312,6 +370,30 @@ def create_app():
     def checkout_success():
         return render_template("checkout_success.html")
 
+    def _qr_png_from_payload(payload: str) -> bytes:
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4
+        )
+        qr.add_data(payload)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+
+    @app.route("/qr/<md5>.png")
+    def qr_png(md5):
+        order = orders_get(md5)
+        if not order or not order.get("qr_payload"):
+            os.abort(404)
+        png_bytes = _qr_png_from_payload(order["qr_payload"])
+        resp = Response(png_bytes, mimetype="image/png")
+        resp.headers["Cache-Control"] = "no-store, max-age=0"
+        return resp
+
     @app.route("/checkout", methods=["GET", "POST"])
     def checkout():
         items, subtotal = cart_items()
@@ -323,54 +405,62 @@ def create_app():
                 "phone": request.form.get("phone", ""),
             }
 
-            # KHQR
-            amount_str = str(subtotal)
-            currency = "USD"
+            selected_currency = (request.form.get("currency") or "USD").upper()
+
+            # subtotal គឺ Decimal សុទ្ធ
+            items, subtotal = cart_items()
+            subtotal_dec = Decimal(subtotal)
+
+            # គណនា amount + ទ្រង់ទ្រាយតាម currency
+            if selected_currency == "KHR":
+                amount_dec = usd_to_khr(subtotal_dec)
+            else:
+                amount_dec = subtotal_dec
+
+            amount_str = format_amount(amount_dec, selected_currency)
+
             if not khqr:
                 flash("BAKONG_TOKEN មិនកំណត់ទេ (.env)", "danger")
                 return redirect(url_for("checkout"))
 
             qr_payload = khqr.create_qr(
-                bank_account='sothun_thoeun@aclb',
-                merchant_name='SOTHUN THOEUN',
-                merchant_city='Phnom Penh',
+                bank_account=BAKONG_ACCOUNT,
+                merchant_name=MERCHANT_NAME,
+                merchant_city=MERCHANT_CITY,
                 amount=amount_str,
-                currency=currency,
-                store_label='CHAI-Shop',
-                phone_number='855888356210',
-                bill_number='INV-00001',
-                terminal_label='Cashier-01',
+                currency=selected_currency,
+                store_label=STORE_LABEL,
+                phone_number=MERCHANT_PHONE,
+                bill_number=f"INV-{datetime.utcnow():%Y%m%d%H%M%S}",
+                terminal_label=TERMINAL_LABEL,
                 static=False
             )
             md5 = khqr.generate_md5(qr_payload)
+            from datetime import timedelta
+            EXPIRES_SECONDS = 60
+            expire_at = (datetime.utcnow() + timedelta(seconds=EXPIRES_SECONDS)).isoformat()
 
-            # Save QR image
-            qr_object = qrcode.QRCode(
-                version=1,
-                error_correction=qrcode.constants.ERROR_CORRECT_L,
-                box_size=10,
-                border=4
-            )
-            qr_object.add_data(qr_payload)
-            qr_object.make(fit=True)
-            img = qr_object.make_image(fill_color="black", back_color="white")
-            img.save(os.path.join(app.static_folder, "qrcode.png"))
-
-            # Save pending order (server-side; deep copy items!)
+            # 🟢 Save order WITHOUT writing image to static/
             order = {
                 "customer": copy.deepcopy(customer),
                 "items": copy.deepcopy(items),
                 "subtotal": str(amount_str),
-                "currency": currency,
+                "currency": selected_currency,
+                "fx_rate": str(EXCHANGE_RATE_KHR) if selected_currency == "KHR" else None,
+                "qr_payload": qr_payload,  # ← ស្តុក payload
                 "notified": False,
                 "created_at": datetime.utcnow().isoformat(),
+                "expires_at": expire_at,
             }
             orders_save(md5, order)
 
             return render_template(
                 "payment.html",
-                amount=amount_str, currency=currency,
-                md5=md5, name="SOTHUN THOEUN", seconds=60
+                amount=amount_str,
+                currency=selected_currency,
+                md5=md5,
+                name=MERCHANT_NAME,
+                seconds=EXPIRES_SECONDS,
             )
 
         return render_template("checkout.html", items=items, subtotal=subtotal)
@@ -384,6 +474,26 @@ def create_app():
         if not os.getenv("BAKONG_TOKEN"):
             return {'error': 'BAKONG_TOKEN not set'}, 500
 
+        # -------------------- ពិនិត្យ QR expired --------------------
+        order = orders_get(md5)
+        if not order:
+            app.logger.warning("[Order] not found for md5=%s", md5)
+            return {"success": True, "message": "Payment Success (order not found)"}
+
+        try:
+            exp_str = order.get("expires_at")
+            if exp_str:
+                exp_dt = datetime.fromisoformat(exp_str.replace("Z", ""))
+                if datetime.utcnow() > exp_dt and not order.get("notified"):
+                    app.logger.info("[Order] md5=%s expired at %s", md5, exp_dt)
+                    return {
+                        "success": False,
+                        "message": "QR expired. Please go back to Checkout to generate a new code."
+                    }, 410
+        except Exception:
+            pass
+
+        # -------------------- សួរទៅ Bakong --------------------
         try:
             res = requests.post(
                 'https://api-bakong.nbc.gov.kh/v1/check_transaction_by_md5',
@@ -417,35 +527,36 @@ def create_app():
             .upper()
         )
         success = (status_text == "SUCCESS") or (
-            payload.get("responseCode") == 0 and (p_data.get("acknowledgedDateMs") or p_data.get("createdDateMs"))
+                payload.get("responseCode") == 0 and (p_data.get("acknowledgedDateMs") or p_data.get("createdDateMs"))
         )
         app.logger.info("[Bakong] md5=%s success=%s", md5, success)
 
         if not success:
             return {"success": False, "message": "Waiting for payment..."}
 
-        # Paid -> fetch order (server-side store or session)
-        order = orders_get(md5)
-        if not order:
-            app.logger.warning("[Order] not found for md5=%s (check storage/REDIS_URL)", md5)
-            # payment is confirmed anyway
-            return {"success": True, "message": "Payment Success (order not found)"}
-
-        # idempotency lock
+        # -------------------- Confirm Payment --------------------
         if not acquire_notify_lock(md5):
             app.logger.info("[Notify] duplicate suppressed md5=%s", md5)
             return {"success": True, "message": "Payment Success"}
 
         try:
             if not order.get("notified"):
+                # Telegram
                 try:
                     tg_ok = send_telegram(build_tg_lines(order))
                     app.logger.info("[Telegram] sent=%s", tg_ok)
                 except Exception:
                     app.logger.exception("[Telegram] build/send failed")
 
+                # Email
                 try:
-                    mail_ok = send_invoice_email(order["customer"], order["items"], order["subtotal"])
+                    mail_ok = send_invoice_email(
+                        order["customer"],
+                        order["items"],
+                        order["subtotal"],
+                        order.get("currency", "USD"),
+                        order.get("fx_rate")
+                    )
                     app.logger.info("[Mail] sent=%s", mail_ok)
                 except Exception:
                     app.logger.exception("[Mail] send failed")
@@ -454,7 +565,7 @@ def create_app():
                 order["notified"] = True
                 orders_save(md5, order)
 
-                # clear cart (best effort)
+                # clear cart
                 session["cart"] = {}
                 session.modified = True
         finally:
